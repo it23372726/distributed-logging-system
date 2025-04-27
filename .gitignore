@@ -1,0 +1,20 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# IDE files (optional: for editors like VSCode, PyCharm, etc.)
+.idea/
+.vscode/
+
+# FastAPI specific files
+*.log
+*.sqlite3
+
+# System files
+.DS_Store
+Thumbs.db

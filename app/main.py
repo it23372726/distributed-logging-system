@@ -2,12 +2,12 @@ from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import LogDB
 from typing import List
 from pathlib import Path
-import uuid
 
 app = FastAPI()
 
@@ -35,7 +35,7 @@ class LogCreate(Log):
     pass
 
 class LogRead(Log):
-    id: str
+    id: int  # Changed to integer
 
 # Frontend route
 @app.get("/", include_in_schema=False)
@@ -50,15 +50,14 @@ async def get_logs_api(db: Session = Depends(get_db)):
 
 @app.post("/logs/", response_model=LogRead)
 async def create_log(log: LogCreate, db: Session = Depends(get_db)):
-    log_id = str(uuid.uuid4())
-    db_log = LogDB(id=log_id, name=log.name, password=log.password)
+    db_log = LogDB(name=log.name, password=log.password)
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
     return db_log
 
 @app.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_log(log_id: str, db: Session = Depends(get_db)):
+async def delete_log(log_id: int, db: Session = Depends(get_db)):  # Changed to integer
     db_log = db.query(LogDB).filter(LogDB.id == log_id).first()
     if not db_log:
         raise HTTPException(
@@ -70,7 +69,7 @@ async def delete_log(log_id: str, db: Session = Depends(get_db)):
     return None
 
 @app.put("/logs/{log_id}", response_model=LogRead)
-async def update_log(log_id: str, updated_log: LogCreate, db: Session = Depends(get_db)):
+async def update_log(log_id: int, updated_log: LogCreate, db: Session = Depends(get_db)):  # Changed to integer
     db_log = db.query(LogDB).filter(LogDB.id == log_id).first()
     if not db_log:
         raise HTTPException(
@@ -83,7 +82,6 @@ async def update_log(log_id: str, updated_log: LogCreate, db: Session = Depends(
     db.commit()
     db.refresh(db_log)
     return db_log
-
 
 if __name__ == "__main__":
     import uvicorn

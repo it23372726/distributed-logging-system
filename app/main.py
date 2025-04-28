@@ -4,12 +4,15 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from app.database import SessionLocal, create_tables
 from app.models import LogDB
 from typing import List
 from pathlib import Path
 
 app = FastAPI()
+
+# Create the tables at the startup
+create_tables()
 
 # Setup templates and static files
 BASE_DIR = Path(__file__).parent.parent  # Go up one level to project root
@@ -85,4 +88,4 @@ async def update_log(log_id: int, updated_log: LogCreate, db: Session = Depends(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8002)

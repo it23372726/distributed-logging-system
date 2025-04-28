@@ -4,6 +4,6 @@ from app.database import Base
 class LogDB(Base):
     __tablename__ = "logs"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)  # Ensure autoincrement is set
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String)
     password = Column(String)

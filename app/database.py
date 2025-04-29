@@ -1,19 +1,13 @@
-# app/database.py
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
 
-# Correct Database URL
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:docker@localhost:5432/distributed_logging_db"
+# Update this URL if needed
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:docker@localhost:5432/distributed_logging_db"
 
-# Create engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base class for all models
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 Base = declarative_base()
+
 
 
 def create_tables():

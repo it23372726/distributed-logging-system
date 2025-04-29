@@ -6,6 +6,7 @@ from datetime import datetime
 class LogDB(Base):
     __tablename__ = "logs"
 
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String)
     password = Column(String)

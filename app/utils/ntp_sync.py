@@ -11,6 +11,7 @@ def sync_time(ntp_server="pool.ntp.org"):
     :param ntp_server: The NTP server to sync with (default is 'pool.ntp.org')
     :return: Synchronized timestamp as a datetime object or None if synchronization fails
     """
+
     try:
         # Create an NTP client
         client = ntplib.NTPClient()

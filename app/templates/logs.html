@@ -145,6 +145,26 @@
     </div>
 
     <script>
+
+    async function findLeaderNode() {
+        // Try nodes in sequence (in a real system, you might know all node addresses)
+        const nodes = ["", "http://localhost:8001", "http://localhost:8002"]; // Add your node URLs
+        for (const baseUrl of nodes) {
+            try {
+                const response = await fetch(`${baseUrl}/consensus/status`);
+                if (response.ok) {
+                    const status = await response.json();
+                    if (status.is_leader) {
+                        return baseUrl || window.location.origin; // Default to current if empty string
+                    }
+                }
+            } catch (error) {
+                console.warn(`Failed to check node at ${baseUrl}:`, error);
+            }
+        }
+        throw new Error("No leader node found");
+    }
+
         let editingLogId = null;
 
         async function editLogPressed(logId) {
@@ -155,20 +175,45 @@
             await loadLogs();
         }
 
-        async function loadLogs() {
-            try {
-                const response = await fetch('/logs/');
-                if (!response.ok) throw new Error('API request failed');
-                const logs = await response.json();
+    async function loadLogs() {
+        try {
+            // First attempt to fetch logs
+            let response = await fetch('/logs/');
 
-                const container = document.getElementById('logsContainer');
-                container.innerHTML = logs.map(log => {
-                    const readonlyAttr = editingLogId == log.id ? '' : 'readonly';
-                    const iconName = editingLogId == log.id ? 'save' : 'edit';
-                    const buttonFunction = editingLogId == log.id? `updateLog('${log.id}')`: `editLogPressed('${log.id}')`;
-                    console.log(log.name , log.id)
+            // Handle 403 Forbidden (not leader) by finding leader
+            if (response.status === 403) {
+                try {
+                    const leaderUrl = await findLeaderNode();
+                    response = await fetch(`${leaderUrl}/logs/`);
 
-                    return `
+                    // If still not successful after redirect
+                    if (!response.ok) {
+                        throw new Error(`Leader node failed with status ${response.status}`);
+                    }
+                } catch (leaderError) {
+                    console.error('Leader redirection failed:', leaderError);
+                    throw new Error('Cannot connect to leader node. Please try again later.');
+                }
+            }
+            // Handle other error statuses
+            else if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+
+            // Process successful response
+            const logs = await response.json();
+            const container = document.getElementById('logsContainer');
+
+            // Clear previous logs
+            container.innerHTML = '';
+
+            // Render logs
+            logs.forEach(log => {
+                const readonlyAttr = editingLogId == log.id ? '' : 'readonly';
+                const iconName = editingLogId == log.id ? 'save' : 'edit';
+                const buttonFunction = editingLogId == log.id ? `updateLog('${log.id}')` : `editLogPressed('${log.id}')`;
+
+                container.insertAdjacentHTML('beforeend', `
                         <div class="log-entry" id="log-${log.id}">
                             <button class="delete-btn" onclick="deleteLog('${log.id}')">X</button>
                             <i class="edit-btn" onclick="${buttonFunction}" data-lucide="${iconName}"></i>
@@ -179,16 +224,27 @@
                                 <input type="text" value="${log.password}" ${readonlyAttr}>
                             </div>
                         </div>
-                    `;
-                }).join('');
+                    `);
+            });
 
-                // Reinitialize icons after rendering
-                lucide.createIcons();
-            } catch (error) {
-                console.error('Error loading logs:', error);
-                alert('Failed to load logs. Check console for details.');
-            }
+            // Reinitialize icons after rendering
+            lucide.createIcons();
+
+        } catch (error) {
+            console.error('Error loading logs:', error);
+            alert(`Error: ${error.message}`);
+
+            // Optional: Show a user-friendly error in the UI
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = `
+                    <div class="error-message">
+                        <i data-lucide="alert-triangle"></i>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            lucide.createIcons();
         }
+    }
 
         async function addLog() {
             const name = document.getElementById('name').value;
@@ -200,16 +256,22 @@
             }
 
             try {
-                const response = await fetch('/logs/', {
+                // First try the current node
+                let response = await fetch('/logs/', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: name,
-                        password: password
-                    })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, password})
                 });
+
+                // If 403, find leader and retry
+                if (response.status === 403) {
+                    const leaderUrl = await findLeaderNode();
+                    response = await fetch(`${leaderUrl}/logs/`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, password})
+                    });
+                }
 
                 if (!response.ok) throw new Error('Failed to add log');
 
@@ -218,7 +280,7 @@
                 await loadLogs();
             } catch (error) {
                 console.error('Error adding log:', error);
-                alert('Failed to add log. Check console for details.');
+                alert(`Failed to add log: ${error.message}`);
             }
         }
 
@@ -229,57 +291,58 @@
             const updatedPassword = inputs[1].value;
 
             try {
-                const response = await fetch(`/logs/${logId}`, {
+                let response = await fetch(`/logs/${logId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        name: updatedName,
-                        password: updatedPassword
-                    })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: updatedName, password: updatedPassword})
                 });
 
+                if (response.status === 403) {
+                    const leaderUrl = await findLeaderNode();
+                    response = await fetch(`${leaderUrl}/logs/${logId}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name: updatedName, password: updatedPassword})
+                    });
+                }
+
                 if (!response.ok) throw new Error('Failed to update log');
-
-                // Display success alert
                 alert('Log updated successfully!');
-
-                // Reset the editing state
                 editingLogId = null;
                 await loadLogs();
             } catch (error) {
                 console.error('Error updating log:', error);
-                alert('Failed to update log. Check console for details.');
+                alert(`Failed to update log: ${error.message}`);
             }
         }
 
         async function deleteLog(logId) {
-            if (!confirm('Are you sure you want to delete this log?')) {
-                return;
-            }
+            if (!confirm('Are you sure you want to delete this log?')) return;
 
             try {
-                const response = await fetch(`/logs/${logId}`, {
+                let response = await fetch(`/logs/${logId}`, {
                     method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    headers: {'Content-Type': 'application/json'}
                 });
 
-                if (response.ok) {
-                    await loadLogs();
-                } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Failed to delete log');
+                if (response.status === 403) {
+                    const leaderUrl = await findLeaderNode();
+                    response = await fetch(`${leaderUrl}/logs/${logId}`, {
+                        method: 'DELETE',
+                        headers: {'Content-Type': 'application/json'}
+                    });
                 }
+
+                if (!response.ok) throw new Error('Failed to delete log');
+                await loadLogs();
             } catch (error) {
                 console.error('Error deleting log:', error);
                 alert(`Error deleting log: ${error.message}`);
             }
         }
 
-        window.addEventListener('DOMContentLoaded', loadLogs);
+
+    window.addEventListener('DOMContentLoaded', loadLogs);
     </script>
 </body>
 </html>

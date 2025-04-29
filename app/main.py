@@ -11,6 +11,7 @@ from app.models import LogDB
 from typing import List
 from pathlib import Path
 from utils.ntp_sync import sync_time  # Import NTP sync function
+from app.replication import replicate_log # Import replication function
 
 app = FastAPI()
 
@@ -75,6 +76,16 @@ async def create_log(log: LogCreate, db: Session = Depends(get_db)):
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
+
+     # Replicate the log to backup servers
+    replication_success = replicate_log(db_log)
+
+    if not replication_success:
+        raise HTTPException(
+            status_code=500,
+            detail="Log replication failed. Some replicas may not have received the log."
+        )
+
     return db_log
 
 

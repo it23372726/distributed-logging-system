@@ -133,6 +133,13 @@
         <button class="add-btn" onclick="addLog()">Add Log</button>
     </div>
 
+    <!-- Sync Time Section -->
+    <div class="form-container">
+        <h2>Sync Time</h2>
+        <button class="add-btn" onclick="syncTime()">Sync Time</button>
+        <p id="synced-time"></p>
+    </div>
+
     <!-- Header Row -->
     <div class="log-header">
         <div>Name</div>
@@ -140,9 +147,7 @@
     </div>
 
     <!-- Log Entries -->
-    <div id="logsContainer">
-        <!-- Filled by JavaScript -->
-    </div>
+    <div id="logsContainer"></div>
 
     <script>
         let editingLogId = null;
@@ -166,20 +171,19 @@
                     const readonlyAttr = editingLogId == log.id ? '' : 'readonly';
                     const iconName = editingLogId == log.id ? 'save' : 'edit';
                     const buttonFunction = editingLogId == log.id? `updateLog('${log.id}')`: `editLogPressed('${log.id}')`;
-                    console.log(log.name , log.id)
 
                     return `
-                        <div class="log-entry" id="log-${log.id}">
-                            <button class="delete-btn" onclick="deleteLog('${log.id}')">X</button>
-                            <i class="edit-btn" onclick="${buttonFunction}" data-lucide="${iconName}"></i>
-                            <div>
-                                <input type="text" value="${log.name}" ${readonlyAttr}>
-                            </div>
-                            <div class="pswrd">
-                                <input type="text" value="${log.password}" ${readonlyAttr}>
-                            </div>
-                        </div>
-                    `;
+                                            <div class="log-entry" id="log-${log.id}">
+                                                <button class="delete-btn" onclick="deleteLog('${log.id}')">X</button>
+                                                <i class="edit-btn" onclick="${buttonFunction}" data-lucide="${iconName}"></i>
+                                                <div>
+                                                    <input type="text" value="${log.name}" ${readonlyAttr}>
+                                                </div>
+                                                <div class="pswrd">
+                                                    <input type="text" value="${log.password}" ${readonlyAttr}>
+                                                </div>
+                                            </div>
+                                        `;
                 }).join('');
 
                 // Reinitialize icons after rendering
@@ -276,6 +280,23 @@
             } catch (error) {
                 console.error('Error deleting log:', error);
                 alert(`Error deleting log: ${error.message}`);
+            }
+        }
+
+        async function syncTime() {
+            try {
+                const response = await fetch('/sync-time');
+                if (!response.ok) throw new Error('Time sync request failed');
+                const data = await response.json();
+
+                if (data.synced_time) {
+                    document.getElementById('synced-time').innerText = `Synced Time: ${data.synced_time}`;
+                } else {
+                    document.getElementById('synced-time').innerText = 'Failed to sync time.';
+                }
+            } catch (error) {
+                console.error('Error syncing time:', error);
+                document.getElementById('synced-time').innerText = 'Error syncing time.';
             }
         }
 

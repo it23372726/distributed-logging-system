@@ -1,24 +1,38 @@
+# app/main.py
+
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.database import SessionLocal, create_tables
 from app.models import LogDB
 from typing import List
 from pathlib import Path
+from utils.ntp_sync import sync_time  # Import NTP sync function
 
 app = FastAPI()
 
 # Create the tables at the startup
 create_tables()
 
-# Setup templates and static files
-BASE_DIR = Path(__file__).parent.parent  # Go up one level to project root
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+# Synchronize system time at startup
+sync_time()
 
+# Setup templates and static directories
+BASE_DIR = Path(__file__).resolve().parent.parent  # distributed-logging-system/
+
+STATIC_DIR = BASE_DIR / "app" / "static"
+TEMPLATES_DIR = BASE_DIR / "app" / "templates"
+
+# Check if static directory exists, else create it
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# Dependency to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -26,7 +40,7 @@ def get_db():
     finally:
         db.close()
 
-# Data models
+# Pydantic models
 class Log(BaseModel):
     name: str
     password: str
@@ -38,9 +52,10 @@ class LogCreate(Log):
     pass
 
 class LogRead(Log):
-    id: int  # Changed to integer
+    id: int
+    timestamp: datetime
 
-# Frontend route
+# Frontend
 @app.get("/", include_in_schema=False)
 async def read_root(request: Request):
     return templates.TemplateResponse("logs.html", {"request": request})
@@ -53,26 +68,18 @@ async def get_logs_api(db: Session = Depends(get_db)):
 
 @app.post("/logs/", response_model=LogRead)
 async def create_log(log: LogCreate, db: Session = Depends(get_db)):
-    db_log = LogDB(name=log.name, password=log.password)
+    synchronized_time = sync_time()
+    timestamp = synchronized_time if synchronized_time else datetime.utcnow()
+
+    db_log = LogDB(name=log.name, password=log.password, timestamp=timestamp)
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
     return db_log
 
-@app.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_log(log_id: int, db: Session = Depends(get_db)):  # Changed to integer
-    db_log = db.query(LogDB).filter(LogDB.id == log_id).first()
-    if not db_log:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Log with id {log_id} not found"
-        )
-    db.delete(db_log)
-    db.commit()
-    return None
 
 @app.put("/logs/{log_id}", response_model=LogRead)
-async def update_log(log_id: int, updated_log: LogCreate, db: Session = Depends(get_db)):  # Changed to integer
+async def update_log(log_id: int, updated_log: LogCreate, db: Session = Depends(get_db)):
     db_log = db.query(LogDB).filter(LogDB.id == log_id).first()
     if not db_log:
         raise HTTPException(
@@ -86,6 +93,23 @@ async def update_log(log_id: int, updated_log: LogCreate, db: Session = Depends(
     db.refresh(db_log)
     return db_log
 
+
+
+
+@app.delete("/logs/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_log(log_id: int, db: Session = Depends(get_db)):
+    db_log = db.query(LogDB).filter(LogDB.id == log_id).first()
+    if not db_log:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Log with id {log_id} not found"
+        )
+    db.delete(db_log)
+    db.commit()
+    return None
+
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

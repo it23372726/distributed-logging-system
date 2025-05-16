@@ -34,7 +34,11 @@ class LogRead(Log):
 
 async def find_leader_node():
     """Helper function to find the current leader"""
-    nodes = ["http://localhost:8000", "http://localhost:8001", "http://localhost:8002"]
+    nodes = [
+        "http://node1:8001",
+        "http://node2:8002",
+        "http://node3:8003"
+    ]
     for url in nodes:
         try:
             async with httpx.AsyncClient() as client:

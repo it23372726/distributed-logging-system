@@ -37,3 +37,13 @@ async def get_consensus_log(index: int):
             detail="Log entry not found"
         )
     return log
+
+@router.post("/request_vote")
+async def request_vote(payload: dict):
+    # Process RequestVote RPC
+    return {"vote_granted": True}  # Implement real logic
+
+@router.post("/append_entries")
+async def append_entries(payload: dict):
+    # Process AppendEntries RPC
+    return {"success": True}  # Implement real logic

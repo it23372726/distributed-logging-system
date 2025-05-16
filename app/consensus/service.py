@@ -6,19 +6,20 @@ import os
 
 class ConsensusService:
     def __init__(self):
-        # Initialize with node ID and peer IDs from environment
+        # Initialize with node ID from environment
         self.node_id = int(os.getenv("NODE_ID", "1"))
-        peer_ids = [int(id) for id in os.getenv("PEERS", "2,3").split(",")]
 
-        # Initialize Raft node
+        # Parse peers as host:port strings from environment variable
+        peer_addresses = [addr.strip() for addr in os.getenv("PEERS", "").split(",") if addr.strip()]
+
+        # Initialize Raft node with peer addresses
         raft_params = RaftParams(
-            election_timeout=1000,
+            election_timeout_min=1500,
+            election_timeout_max=3000,
             heartbeat_interval=500,
             rpc_timeout=300
         )
-        self.raft_node = RaftNode(self.node_id, peer_ids, raft_params)
-
-        # Initialize log storage
+        self.raft_node = RaftNode(self.node_id, peer_addresses, raft_params)
         self.log_storage = LogStorage()
 
     async def start(self):
@@ -55,3 +56,9 @@ class ConsensusService:
     def get_all_logs(self):
         """Get all log entries"""
         return self.log_storage.get_all()
+
+    async def handle_request_vote(self, data: dict) -> dict:
+        return await self.raft_node.handle_request_vote(data)
+
+    async def handle_append_entries(self, data: dict) -> dict:
+        return await self.raft_node.handle_append_entries(data)

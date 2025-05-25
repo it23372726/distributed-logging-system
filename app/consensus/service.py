@@ -3,7 +3,6 @@ from app.consensus.raftNode import RaftNode, RaftParams, RaftRole, LogEntry
 from app.consensus.logStorage import LogStorage  # Correct import
 import os
 
-
 class ConsensusService:
     def __init__(self):
         # Initialize with node ID from environment

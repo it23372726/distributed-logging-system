@@ -1,18 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends
-from app.consensus.service import ConsensusService
-from fastapi import status
+from fastapi import APIRouter, HTTPException, status
+from app.main import consensus_service
 
 router = APIRouter(
     prefix="/consensus",
     tags=["consensus"]
 )
-
-# Initialize the consensus service
-consensus_service = ConsensusService()
-
-@router.on_event("startup")
-async def startup_event():
-    await consensus_service.start()
 
 @router.get("/status")
 async def get_status():
@@ -40,10 +32,8 @@ async def get_consensus_log(index: int):
 
 @router.post("/request_vote")
 async def request_vote(payload: dict):
-    # Process RequestVote RPC
-    return {"vote_granted": True}  # Implement real logic
+    return await consensus_service.handle_request_vote(payload)
 
 @router.post("/append_entries")
 async def append_entries(payload: dict):
-    # Process AppendEntries RPC
-    return {"success": True}  # Implement real logic
+    return await consensus_service.handle_append_entries(payload)

@@ -6,15 +6,12 @@ from app.database import get_db
 from app.models import LogDB
 from pydantic import BaseModel
 from typing import List
-from app.consensus.service import ConsensusService
+from app.main import consensus_service
 
 router = APIRouter(
     prefix="/logs",
     tags=["logs"]
 )
-
-consensus_service = ConsensusService()
-
 
 class Log(BaseModel):
     name: str
@@ -23,21 +20,18 @@ class Log(BaseModel):
     class Config:
         orm_mode = True
 
-
 class LogCreate(Log):
     pass
-
 
 class LogRead(Log):
     id: int
 
 
 async def find_leader_node():
-    """Helper function to find the current leader"""
     nodes = [
-        "http://node1:8001",
-        "http://node2:8002",
-        "http://node3:8003"
+        "http://localhost:8000",
+        "http://localhost:8001",
+        "http://localhost:8002"
     ]
     for url in nodes:
         try:
@@ -52,7 +46,6 @@ async def find_leader_node():
         detail="No leader node available"
     )
 
-
 @router.get("/", response_model=List[LogRead])
 async def get_logs_api(db: Session = Depends(get_db)):
     if not consensus_service.is_leader():
@@ -66,9 +59,7 @@ async def get_logs_api(db: Session = Depends(get_db)):
             raise e
 
     db_logs = db.query(LogDB).all()
-    consensus_logs = consensus_service.get_all_logs()
     return db_logs
-
 
 @router.post("/", response_model=LogRead)
 async def create_log(log: LogCreate, db: Session = Depends(get_db)):
@@ -91,5 +82,3 @@ async def create_log(log: LogCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_log)
     return db_log
-
-# Keep your existing PUT and DELETE endpoints with similar redirect logic
